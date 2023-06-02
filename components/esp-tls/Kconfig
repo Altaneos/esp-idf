@@ -13,15 +13,33 @@ menu "ESP-TLS"
             bool "wolfSSL (License info in wolfSSL directory README)"
     endchoice
 
-    config ESP_TLS_USE_SECURE_ELEMENT
-        bool "Use Secure Element (ATECC608A) with ESP-TLS"
+    choice 
+        prompt "Choose if a secure element will be used with ESP-TLS"
+        help
+            Enable use of Secure Element for ESP-TLS, this enables internal support for
+            ATECC608A peripheral on ESPWROOM32SE or for the SE050.
+
+        config ESP_TLS_USE_SE_NONE
+            bool "None"
+
+        config ESP_TLS_USE_ATECC
+            bool "Use ATECC608A"
         depends on IDF_TARGET_ESP32 && ESP_TLS_USING_MBEDTLS
         select ATCA_MBEDTLS_ECDSA
         select ATCA_MBEDTLS_ECDSA_SIGN
         select ATCA_MBEDTLS_ECDSA_VERIFY
-        help
-            Enable use of Secure Element for ESP-TLS, this enables internal support for
-            ATECC608A peripheral on ESPWROOM32SE, which can be used for TLS connection.
+            select ESP_TLS_USE_SECURE_ELEMENT
+
+        config ESP_TLS_USE_SE050
+            bool "Use SE050"
+            depends on ESP_TLS_USING_MBEDTLS || ESP_TLS_USING_WOLFSSL
+            select ESP_TLS_USE_SECURE_ELEMENT
+
+    endchoice
+
+    config ESP_TLS_USE_SECURE_ELEMENT
+        bool
+        default n
 
     config ESP_TLS_USE_DS_PERIPHERAL
         bool "Use Digital Signature (DS) Peripheral with ESP-TLS"
@@ -41,6 +59,7 @@ menu "ESP-TLS"
 
     config ESP_TLS_SERVER
         bool "Enable ESP-TLS Server"
+        default n
         help
             Enable support for creating server side SSL/TLS session, available for mbedTLS
             as well as wolfSSL TLS library.
@@ -76,6 +95,7 @@ menu "ESP-TLS"
         select MBEDTLS_KEY_EXCHANGE_DHE_PSK if ESP_TLS_USING_MBEDTLS
         select MBEDTLS_KEY_EXCHANGE_ECDHE_PSK if ESP_TLS_USING_MBEDTLS
         select MBEDTLS_KEY_EXCHANGE_RSA_PSK if ESP_TLS_USING_MBEDTLS
+        default n
         help
             Enable support for pre shared key ciphers, supported for both mbedTLS as well as
             wolfSSL TLS library.
@@ -111,6 +131,7 @@ menu "ESP-TLS"
     config ESP_DEBUG_WOLFSSL
         bool "Enable debug logs for wolfSSL"
         depends on ESP_TLS_USING_WOLFSSL
+        default n
         help
             Enable detailed debug prints for wolfSSL SSL library.
 

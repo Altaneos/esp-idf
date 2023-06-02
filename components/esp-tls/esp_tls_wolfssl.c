@@ -19,6 +19,8 @@
 #include <errno.h>
 #include "esp_log.h"
 
+#include "se050.h"
+
 static unsigned char *global_cacert = NULL;
 static unsigned int global_cacert_pem_bytes = 0;
 static const char *TAG = "esp-tls-wolfssl";
@@ -236,8 +238,53 @@ static esp_err_t set_client_config(const char *hostname, size_t hostlen, esp_tls
 #endif
     }
 
-    if (cfg->clientcert_buf != NULL && cfg->clientkey_buf != NULL) {
-        if ((esp_load_wolfssl_verify_buffer(tls,cfg->clientcert_buf, cfg->clientcert_bytes, FILE_TYPE_SELF_CERT, &ret)) != ESP_OK) {
+    if (cfg->use_secure_element == true)
+    {
+        ESP_LOGD(TAG, "Using a secure element");
+
+        // Check if SE050 defined
+#ifdef CONFIG_ESP_TLS_USE_SE050
+        static uint8_t tmpCert[2048]; // TODO: dangerous, maybe do this differently ?
+        size_t iSize;
+        uint32_t iPrivateKeyId;
+        int iRetWolfSSL;
+        esp_err_t iRetSE050;
+
+        // Get Client Cert
+        iRetSE050 = SE050_GetCert(tmpCert, &iSize);
+        if (iRetSE050 != ESP_OK)
+        {
+            ESP_LOGE(TAG, "SE050_GetCert: Couldn't get certificate (%d)", iRetSE050);
+            return ESP_ERR_WOLFSSL_SSL_SETUP_FAILED;
+        }
+        // Add the cert to wolfSSL CTX
+        iRetWolfSSL = wolfSSL_CTX_use_certificate_buffer((WOLFSSL_CTX *)tls->priv_ctx, tmpCert, iSize, SSL_FILETYPE_ASN1);
+        if (iRetWolfSSL != WOLFSSL_SUCCESS)
+        {
+            ESP_LOGE(TAG, "wolfSSL_CTX_use_certificate_buffer: Couldn't add certificate to WolfSSL CTX (%d)", iRetWolfSSL);
+            return ESP_ERR_WOLFSSL_SSL_SETUP_FAILED;
+        }
+
+        // Get Private Key ID
+        iPrivateKeyId = SE050_GetPrivateKeyId();
+        iRetWolfSSL = wolfSSL_CTX_use_PrivateKey_Id((WOLFSSL_CTX *)tls->priv_ctx, (const unsigned char *)&iPrivateKeyId, sizeof(int), 10);
+        if (iRetWolfSSL != WOLFSSL_SUCCESS)
+        {
+            ESP_LOGE(TAG, "wolfSSL_CTX_use_PrivateKey_Id: Couldn't add Private Key Id to WolfSSL CTX (%d)", iRetWolfSSL);
+            return ESP_ERR_WOLFSSL_SSL_SETUP_FAILED;
+        }
+#else
+        ESP_LOGE(TAG, "cfg->use_secure_element is set to True, but CONFIG_ESP_TLS_USE_SE050 isn't defined");
+        return ESP_ERR_WOLFSSL_SSL_SETUP_FAILED;
+#endif
+    }
+    else
+    {
+        ESP_LOGD(TAG, "Using provided client certificate and private key");
+        if (cfg->clientcert_buf != NULL && cfg->clientkey_buf != NULL)
+        {
+            if ((esp_load_wolfssl_verify_buffer(tls, cfg->clientcert_buf, cfg->clientcert_bytes, FILE_TYPE_SELF_CERT, &ret)) != ESP_OK)
+            {
             int err = wolfSSL_get_error( (WOLFSSL *)tls->priv_ssl, ret);
             ESP_LOGE(TAG, "Error in loading certificate verify buffer, returned %d, error code: %d", ret, err);
             wolfssl_print_error_msg(err);

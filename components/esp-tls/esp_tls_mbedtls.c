@@ -22,7 +22,7 @@
 #include "esp_crt_bundle.h"
 #endif
 
-#ifdef CONFIG_ESP_TLS_USE_SECURE_ELEMENT
+#ifdef CONFIG_ESP_TLS_USE_ATECC
 /* cryptoauthlib includes */
 #include "mbedtls/atca_mbedtls_wrap.h"
 #include "tng_atca.h"
@@ -30,7 +30,15 @@
 static const atcacert_def_t *cert_def = NULL;
 /* Prototypes for functions */
 static esp_err_t esp_set_atecc608a_pki_context(esp_tls_t *tls, esp_tls_cfg_t *cfg);
-#endif /* CONFIG_ESP_TLS_USE_SECURE_ELEMENT */
+#endif /* CONFIG_ESP_TLS_USE_ATECC */
+
+#ifdef CONFIG_ESP_TLS_USE_SE050
+
+#include "se050.h"
+
+static esp_err_t esp_set_se050_pki_context(esp_tls_t *tls);
+
+#endif /* CONFIG_ESP_TLS_USE_SE050 */
 
 #if defined(CONFIG_ESP_TLS_USE_DS_PERIPHERAL)
 #include "rsa_sign_alt.h"
@@ -310,7 +318,7 @@ void esp_mbedtls_cleanup(esp_tls_t *tls)
     mbedtls_ssl_config_free(&tls->conf);
     mbedtls_ctr_drbg_free(&tls->ctr_drbg);
     mbedtls_ssl_free(&tls->ssl);
-#ifdef CONFIG_ESP_TLS_USE_SECURE_ELEMENT
+#ifdef CONFIG_ESP_TLS_USE_ATECC
     atcab_release();
 #endif
 #ifdef CONFIG_ESP_TLS_USE_DS_PERIPHERAL
@@ -662,17 +670,28 @@ esp_err_t set_client_config(const char *hostname, size_t hostlen, esp_tls_cfg_t 
 #endif
     }
 
-    if (cfg->use_secure_element) {
-#ifdef CONFIG_ESP_TLS_USE_SECURE_ELEMENT
+    if (cfg->use_secure_element)
+    {
+#if defined(CONFIG_ESP_TLS_USE_ATECC)
         ret = esp_set_atecc608a_pki_context(tls, (esp_tls_cfg_t *)cfg);
-        if (ret != ESP_OK) {
+        if (ret != ESP_OK)
+        {
+            return ret;
+        }
+#elif defined(CONFIG_ESP_TLS_USE_SE050)
+        ESP_LOGI(TAG, "Setting up SE050 PKI context");
+        ret = esp_set_se050_pki_context(tls);
+        if (ret != ESP_OK)
+        {
             return ret;
         }
 #else
         ESP_LOGE(TAG, "Please enable secure element support for ESP-TLS in menuconfig");
         return ESP_FAIL;
-#endif /* CONFIG_ESP_TLS_USE_SECURE_ELEMENT */
-    } else if (cfg->ds_data != NULL) {
+#endif /* CONFIG_ESP_TLS_USE_ATECC */
+    }
+    else if (cfg->ds_data != NULL)
+    {
 #ifdef CONFIG_ESP_TLS_USE_DS_PERIPHERAL
         if (cfg->clientcert_pem_buf == NULL) {
             ESP_LOGE(TAG, "Client certificate is also required with the DS parameters");
@@ -827,7 +846,7 @@ void esp_mbedtls_free_global_ca_store(void)
     }
 }
 
-#ifdef CONFIG_ESP_TLS_USE_SECURE_ELEMENT
+#ifdef CONFIG_ESP_TLS_USE_ATECC
 static esp_err_t esp_init_atecc608a(uint8_t i2c_addr)
 {
     cfg_ateccx08a_i2c_default.atcai2c.address = i2c_addr;
@@ -909,7 +928,18 @@ static esp_err_t esp_set_atecc608a_pki_context(esp_tls_t *tls, esp_tls_cfg_t *cf
     }
     return ESP_OK;
 }
-#endif /* CONFIG_ESP_TLS_USE_SECURE_ELEMENT */
+#endif /* CONFIG_ESP_TLS_USE_ATECC */
+
+#ifdef CONFIG_ESP_TLS_USE_SE050
+
+static esp_err_t esp_set_se050_pki_context(esp_tls_t *tls)
+{
+    ESP_LOGI(TAG, "Initialize the SE050 interface...");
+
+    return SE050_Init(tls);
+}
+
+#endif /* CONFIG_ESP_TLS_USE_SE050 */
 
 #ifdef CONFIG_ESP_TLS_USE_DS_PERIPHERAL
 static esp_err_t esp_mbedtls_init_pk_ctx_for_ds(const void *pki)

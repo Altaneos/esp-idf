@@ -20,9 +20,14 @@ if(CONFIG_ESP_TLS_USING_WOLFSSL)
     target_link_libraries(${COMPONENT_LIB} PUBLIC ${wolfssl})
 endif()
 
-if(CONFIG_ESP_TLS_USE_SE)
+if(CONFIG_ESP_TLS_USE_ATECC)
     idf_component_get_property(cryptoauthlib esp-cryptoauthlib COMPONENT_LIB)
     target_link_libraries(${COMPONENT_LIB} PUBLIC ${cryptoauthlib})
+endif()
+
+if(CONFIG_ESP_TLS_USE_SE050)
+    idf_component_get_property(se050lib se050 COMPONENT_LIB)
+    target_link_libraries(${COMPONENT_LIB} PUBLIC ${se050lib})
 endif()
 
 # Increase link multiplicity to get some lwip symbols correctly resolved by the linker
