@@ -313,7 +313,9 @@ void esp_mbedtls_cleanup(esp_tls_t *tls)
 #endif
     mbedtls_x509_crt_free(&tls->cacert);
     mbedtls_x509_crt_free(&tls->clientcert);
+#ifndef CONFIG_ESP_TLS_USE_SE050
     mbedtls_pk_free(&tls->clientkey);
+#endif
     mbedtls_entropy_free(&tls->entropy);
     mbedtls_ssl_config_free(&tls->conf);
     mbedtls_ctr_drbg_free(&tls->ctr_drbg);
@@ -936,7 +938,7 @@ static esp_err_t esp_set_se050_pki_context(esp_tls_t *tls)
 {
     ESP_LOGI(TAG, "Initialize the SE050 interface...");
 
-    return SE050_Init(tls);
+    return SE050_Init_PKI(tls);
 }
 
 #endif /* CONFIG_ESP_TLS_USE_SE050 */
