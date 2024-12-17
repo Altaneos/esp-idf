@@ -250,7 +250,7 @@ extern void vPortCleanUpTCB ( void *pxTCB );
 
 #define configINCLUDE_FREERTOS_TASK_C_ADDITIONS_H       1
 
-#define configTASK_NOTIFICATION_ARRAY_ENTRIES           1
+#define configTASK_NOTIFICATION_ARRAY_ENTRIES           8
 
 // backward compatibility for 4.4
 #define xTaskRemoveFromUnorderedEventList vTaskRemoveFromUnorderedEventList
