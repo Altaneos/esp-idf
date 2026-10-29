@@ -75,7 +75,9 @@ void esp_execute_shared_stack_function(SemaphoreHandle_t lock, void *stack, size
 
     //Restore current task stack:
     current->pxDummy6 = (StackType_t *)current_task_stack;
+#if CONFIG_FREERTOS_WATCHPOINT_END_OF_STACK
     vPortSetStackWatchpoint(current->pxDummy6);
+#endif
     portEXIT_CRITICAL(&xtensa_shared_stack_spinlock);
 
     xSemaphoreGive(lock);
